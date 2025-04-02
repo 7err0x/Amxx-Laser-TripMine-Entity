@@ -89,7 +89,7 @@ native LM_GetLaser(entity);
  * @param price 				The laser mine price. Set by reference
  * @noreturn
  */
-forward LM_OnBuy_Pre(client, &amount, &price);
+forward LM_OnBuy_Pre(client, amount, price);
 
 
 /**
@@ -109,7 +109,7 @@ forward LM_OnBuy_Post(client, amount, sum);
  * @param act_delay 			Activation time. Set by reference
  * @noreturn
  */
-forward LM_OnPlant(client, &Float:act_delay);
+forward LM_OnPlant(client, Float:act_delay);
 
 /**
  * Called when the player planted a laser mine
@@ -130,7 +130,7 @@ forward LM_OnPlanted(client, lasermine);
  * @param damage 				Damage of the hit. Set by reference
  * @noreturn
  */
-forward LM_OnHit_Pre(victim, &attacker, &lasermine, &damage);
+forward LM_OnHit_Pre(victim, attacker, lasermine, damage);
 
 
 /**
