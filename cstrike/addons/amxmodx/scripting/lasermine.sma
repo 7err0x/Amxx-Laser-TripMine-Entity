@@ -1192,11 +1192,6 @@ lm_step_beambreak(iEnt, Float:vEnd[3], Float:fCurrTime)
 		{
 			ArrayGetArray(aTarget, n, hPlayer);
 			xs_vec_copy(hPlayer[V_POSITION], vEndPosition);
-
-			if (gCvar[CVAR_LASER_FENCE])
-				// Laser reflect.
-				lm_fence_laser(hPlayer[I_TARGET]);
-
 			// Laser line damage mode. Once or Second.
 			create_laser_damage(iEnt, hPlayer[I_TARGET], hPlayer[I_HIT_GROUP], hPlayer[V_POSITION]);
 		}					
@@ -1378,6 +1373,11 @@ create_laser_damage(iEnt, iTarget, hitGroup, Float:hitPoint[])
 		{
 			lm_play_sound(iTarget, SOUND_HIT, team);
 			lm_set_user_lasthit(iTarget, hitGroup);
+
+			if (gCvar[CVAR_LASER_FENCE])
+				// Laser reflect.
+				lm_fence_laser(iTarget);
+
 			if (gCvar[CVAR_VIOLENCE_HBLOOD])
 			{
 				static sprBloodSpray;  sprBloodSpray  = lm_get_sprites_cell(BLOOD_SPRAY, team);
