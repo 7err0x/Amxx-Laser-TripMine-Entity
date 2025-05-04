@@ -166,24 +166,16 @@ forward LM_OnPickup_Post(client);
 /**
  * 
  *
- * @param victim 				Client index of the player who is being hitted
- * @param attacker 				The owner index of the laser mine. Set by reference
- * @param beam 					The beam index which is going to inflict the victim. Set by reference
- * @param lasermine 			The lasermine index which is going to inflict the victim. Set by reference
- * @param damage 				Damage of the hit. Set by reference
+ * @param target 				Client index of the player who is being hitted
  * @noreturn
  */
-forward LM_OnHitFences_Pre(victim, attacker, lasermine, damage);
+forward LM_OnHitFences_Pre(target);
 
 
 /**
  * 
  *
- * @param victim 				Client index of the player who has been hitted
- * @param attacker 				The owner index of the laser mine
- * @param beam 					The beam index which has inflicted the victim
- * @param lasermine 			The lasermine index which has inflicted the victim
- * @param damage 				Damage of the hit
+ * @param target 				Client index of the player who has been hitted
  * @noreturn
  */
-forward LM_OnHitFences_Post(victim, attacker, lasermine, damage);
+forward LM_OnHitFences_Post(target);
