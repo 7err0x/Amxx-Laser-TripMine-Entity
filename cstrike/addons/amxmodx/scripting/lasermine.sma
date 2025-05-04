@@ -81,6 +81,8 @@ enum E_FORWARD
 	E_FWD_ONHIT_POST,
 	E_FWD_ONPICKUP_PRE,
 	E_FWD_ONPICKUP_POST,
+	E_FWD_FENCES_PRE,
+	E_FWD_FENCES_POST,
 }
 
 new g_forward[E_FORWARD];
@@ -98,6 +100,8 @@ public plugin_forward()
 	g_forward[E_FWD_ONHIT_POST]		= CreateMultiForward("LM_OnHit_Post", 		ET_IGNORE, 	FP_CELL, FP_CELL, FP_CELL, FP_CELL);
 	g_forward[E_FWD_ONPICKUP_PRE]	= CreateMultiForward("LM_OnPickup_Pre", 	ET_STOP, 	FP_CELL, FP_CELL);
 	g_forward[E_FWD_ONPICKUP_POST]	= CreateMultiForward("LM_OnPickup_Post", 	ET_IGNORE, 	FP_CELL);
+	g_forward[E_FWD_FENCES_PRE]		= CreateMultiForward("LM_OnHitFences_Pre", 	ET_STOP, 	FP_CELL);
+	g_forward[E_FWD_FENCES_POST]	= CreateMultiForward("LM_OnHitFences_Post", ET_IGNORE, 	FP_CELL);
 }
 
 //====================================================
@@ -1374,9 +1378,7 @@ create_laser_damage(iEnt, iTarget, hitGroup, Float:hitPoint[])
 			lm_play_sound(iTarget, SOUND_HIT, team);
 			lm_set_user_lasthit(iTarget, hitGroup);
 
-			if (gCvar[CVAR_LASER_FENCE])
-				// Laser reflect.
-				lm_fence_laser(iTarget);
+			fwd_laser_fence(iTarget);
 
 			if (gCvar[CVAR_VIOLENCE_HBLOOD])
 			{
@@ -1398,6 +1400,21 @@ create_laser_damage(iEnt, iTarget, hitGroup, Float:hitPoint[])
 	ExecuteForward(g_forward[E_FWD_ONHIT_POST], iRet, iTarget, iAttacker, iEnt, floatround(dmg));
 
 	return;
+}
+
+//====================================================
+// Laser fence reflect.
+//====================================================
+public fwd_laser_fence(iTarget)
+{
+	if (gCvar[CVAR_LASER_FENCE])
+	{
+		new iRet;
+		ExecuteForward(g_forward[E_FWD_FENCES_PRE], iRet, iTarget);
+		// Laser reflect.
+		lm_fence_laser(iTarget);
+		ExecuteForward(g_forward[E_FWD_FENCES_POST], iRet, iTarget);
+	}
 }
 
 //====================================================
