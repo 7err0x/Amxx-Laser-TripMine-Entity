@@ -169,7 +169,7 @@ forward LM_OnPickup_Post(client);
  * @param target 				Client index of the player who is being hitted
  * @noreturn
  */
-forward LM_OnHitFences_Pre(target);
+forward LM_OnHitFences_Pre(client);
 
 
 /**
@@ -178,4 +178,4 @@ forward LM_OnHitFences_Pre(target);
  * @param target 				Client index of the player who has been hitted
  * @noreturn
  */
-forward LM_OnHitFences_Post(target);
+forward LM_OnHitFences_Post(client);
