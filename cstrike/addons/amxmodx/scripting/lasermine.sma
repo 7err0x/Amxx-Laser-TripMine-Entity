@@ -107,8 +107,7 @@ public plugin_init()
 	register_clcmd("+setlaser", 	"lm_progress_deploy");
 	register_clcmd("+setlm", 		"lm_progress_deploy");
 	register_clcmd("-setlaser", 	"lm_progress_stop");
-   	register_clcmd("-setlm", 		"lm_progress_stop");
-
+	register_clcmd("-setlm", 		"lm_progress_stop");
 	register_clcmd("+dellaser", 	"lm_progress_remove");
 	register_clcmd("-dellaser", 	"lm_progress_stop");
 
@@ -1630,7 +1629,29 @@ public client_putinserver(id)
 	ClearStack(gRecycleMine[id]);
 #endif
 
+	if (!is_user_bot(id))
+		set_task(2.0, "lm_apply_default_binds", id + TASK_BIND);
+
 	return PLUGIN_CONTINUE;
+}
+
+//====================================================
+// Default deploy/remove keys (cs16-docker: v place, c remove).
+//====================================================
+public lm_apply_default_binds(taskid)
+{
+	new id = taskid - TASK_BIND;
+
+	if (!gCvar[CVAR_ENABLE] || !is_user_connected(id) || is_user_bot(id))
+		return;
+
+#if defined BIOHAZARD_SUPPORT
+	if (is_user_zombie(id))
+		return;
+#endif
+
+	client_cmd(id, "bind v +setlaser");
+	client_cmd(id, "bind c +dellaser");
 }
 
 //====================================================
