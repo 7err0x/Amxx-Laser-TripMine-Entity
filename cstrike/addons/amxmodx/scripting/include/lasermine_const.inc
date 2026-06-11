@@ -122,6 +122,7 @@ enum _:ERROR
 	E_DELAY_TIME					,
 	E_NOT_ALIVE						,
 	E_MUST_WALL						,
+	E_PLANT_OCCUPIED				,
 	E_MUST_GROUND					,
 	E_NOT_IMPLEMENT					,
 	E_NOT_BUYZONE					,
@@ -204,6 +205,7 @@ enum _:E_LANG_KEY
 	STATE_AMMO						,
 	STATE_INF						,
 	PLANT_WALL						,
+	PLANT_OCCUPIED					,
 	SORRY_IMPL						,
 	NOROUND							,
 	ALL_REMOVE						,
@@ -354,6 +356,7 @@ enum E_CVAR_SETTING_LIST
 #define cp_many_ppl(%1)				client_print_color(%1, %1, "%L", %1, LANG_KEY[MAX_PPL],		CHAT_TAG)
 #define cp_delay_time(%1,%2)		client_print_color(%1, %1, "%L", %1, LANG_KEY[DELAY_SEC],	CHAT_TAG, gCvar[CVAR_START_DELAY] - %2)
 #define cp_must_wall(%1)			client_print_color(%1, %1, "%L", %1, LANG_KEY[PLANT_WALL],	CHAT_TAG)
+#define cp_plant_occupied(%1)		client_print_color(%1, %1, "%L", %1, LANG_KEY[PLANT_OCCUPIED], CHAT_TAG)
 #define cp_sorry(%1)				client_print_color(%1, %1, "%L", %1, LANG_KEY[SORRY_IMPL],	CHAT_TAG)
 #define cp_noround(%1)				client_print_color(%1, %1, "%L", %1, LANG_KEY[NOROUND], 	CHAT_TAG)
 #define cp_all_remove(%1,%2,%3)		client_print_color(%1, %1, "%L", %1, LANG_KEY[ALL_REMOVE],	CHAT_TAG, %2, %3)
@@ -383,6 +386,7 @@ new const LANG_KEY[][]		=
 											"STATE_AMMO"				,
 											"STATE_INF"					,
 											"PLANT_WALL"				,
+											"PLANT_OCCUPIED"			,
 											"SORRY_IMPL"				,
 											"NO_ROUND"					,
 											"ALL_REMOVE"				,

@@ -97,6 +97,106 @@ stock int:lm_get_team_deployed_count(id)
 }
 
 //====================================================
+// Lasermine overlap / beam helpers
+//====================================================
+#define LM_DEPLOY_BLOCK_RADIUS	20.0
+#define LM_BEAM_PLAYER_MARGIN	40.0
+
+stock bool:lm_has_lasermine_near(const Float:origin[3], Float:radius = LM_DEPLOY_BLOCK_RADIUS, ignoreEnt = 0)
+{
+	new ent = -1;
+
+	while ((ent = engfunc(EngFunc_FindEntityInSphere, ent, origin, radius)) != 0)
+	{
+		if (!pev_valid(ent) || ent == ignoreEnt)
+			continue;
+
+		if (equali(lm_get_entity_class_name(ent), ENT_CLASS_LASER))
+			return true;
+	}
+
+	return false;
+}
+
+// Wall plant point used by deploy preview, spawn, and deploy checks.
+stock bool:lm_trace_plant_position(id, Float:vPlantPos[3], Float:vNormal[3], Float:vDecalPos[3])
+{
+	new Float:vOrigin[3], Float:vViewOfs[3], Float:vTraceEnd[3];
+
+	pev(id, pev_origin, vOrigin);
+	pev(id, pev_view_ofs, vViewOfs);
+	velocity_by_aim(id, 128, vTraceEnd);
+	xs_vec_add(vOrigin, vViewOfs, vOrigin);
+	xs_vec_add(vTraceEnd, vOrigin, vTraceEnd);
+
+	new trace = create_tr2();
+	new Float:fFraction = 0.0;
+
+	engfunc(EngFunc_TraceLine, vOrigin, vTraceEnd, IGNORE_MONSTERS, id, trace);
+	get_tr2(trace, TR_flFraction, fFraction);
+
+	if (fFraction >= 1.0)
+	{
+		free_tr2(trace);
+		return false;
+	}
+
+	get_tr2(trace, TR_vecEndPos, vTraceEnd);
+	get_tr2(trace, TR_vecPlaneNormal, vNormal);
+	free_tr2(trace);
+
+	if (xs_vec_distance(vOrigin, vTraceEnd) >= 128.0)
+		return false;
+
+	xs_vec_add(vTraceEnd, vNormal, vDecalPos);
+
+	new Float:vOffset[3];
+	xs_vec_mul_scalar(vNormal, 8.0, vOffset);
+	xs_vec_add(vTraceEnd, vOffset, vPlantPos);
+
+	return true;
+}
+
+stock Float:lm_distance_point_to_segment(const Float:point[3], const Float:start[3], const Float:end[3], Float:closest[3])
+{
+	new Float:segment[3], Float:toPoint[3];
+
+	xs_vec_sub(end, start, segment);
+
+	new Float:segmentLenSq = xs_vec_dot(segment, segment);
+	if (segmentLenSq <= 0.0001)
+	{
+		xs_vec_copy(start, closest);
+		return get_distance_f(point, start);
+	}
+
+	xs_vec_sub(point, start, toPoint);
+
+	new Float:t = xs_vec_dot(toPoint, segment) / segmentLenSq;
+	if (t < 0.0)
+		t = 0.0;
+	else if (t > 1.0)
+		t = 1.0;
+
+	closest[0] = start[0] + segment[0] * t;
+	closest[1] = start[1] + segment[1] * t;
+	closest[2] = start[2] + segment[2] * t;
+
+	return get_distance_f(point, closest);
+}
+
+stock bool:lm_is_player_near_beam(id, const Float:beamStart[3], const Float:beamEnd[3], Float:margin = LM_BEAM_PLAYER_MARGIN)
+{
+	if (!is_user_alive(id))
+		return false;
+
+	new Float:origin[3], Float:closest[3];
+
+	pev(id, pev_origin, origin);
+	return lm_distance_point_to_segment(origin, beamStart, beamEnd, closest) <= margin;
+}
+
+//====================================================
 // Show Progress Bar.
 //====================================================
 stock lm_show_progress(id, time, msg)

@@ -346,11 +346,21 @@ bool:is_valid_takedamage(iAttacker, iTarget)
 
 	if (equali(name, ENT_CLASS_LASER))
 	{
+		new owner = pev(iTarget, LASERMINE_OWNER);
+
+#if defined BIOHAZARD_SUPPORT
+		if (IsPlayer(iAttacker) && IsPlayer(owner))
+			return is_user_zombie(iAttacker) != is_user_zombie(owner);
+#endif
 		if (cs_get_user_team(iAttacker) != lm_get_laser_team(iTarget))
 			return true;
 	}
 	else
 	{
+#if defined BIOHAZARD_SUPPORT
+		if (IsPlayer(iAttacker) && IsPlayer(iTarget))
+			return is_user_zombie(iAttacker) != is_user_zombie(iTarget);
+#endif
 		if (cs_get_user_team(iAttacker) != cs_get_user_team(iTarget))
 			return true;
 	}
@@ -561,6 +571,20 @@ public SpawnMine(id)
 		return PLUGIN_HANDLED_MAIN;
 	}
 
+	new Float:vPlantPos[3], Float:vNormal[3], Float:vDecalPos[3];
+
+	if (!lm_trace_plant_position(uID, vPlantPos, vNormal, vDecalPos))
+	{
+		lm_cancel_deploy(uID, ERROR:E_MUST_WALL);
+		return PLUGIN_HANDLED_MAIN;
+	}
+
+	if (lm_has_lasermine_near(vPlantPos))
+	{
+		lm_cancel_deploy(uID, ERROR:E_PLANT_OCCUPIED);
+		return PLUGIN_HANDLED_MAIN;
+	}
+
 	set_spawn_entity_setting(gDeployingMines[uID], uID, ENT_CLASS_LASER);
 	ExecuteForward(g_forward[E_FWD_ONPLANTED], iRet, id, gDeployingMines[uID]);
 	return 1;
@@ -634,43 +658,10 @@ stock set_spawn_entity_setting(iEnt, uID, classname[])
 //====================================================
 set_mine_position(uID, iEnt)
 {
-	// Vector settings.
-	new Float:vOrigin	[3],Float:vViewOfs	[3];
-	new	Float:vNewOrigin[3],Float:vNormal	[3];
-	new	Float:vTraceEnd	[3],Float:vEntAngles[3];
-	new Float:vDecals	[3];
+	new Float:vNewOrigin[3], Float:vNormal[3], Float:vDecals[3], Float:vEntAngles[3];
 
-	// get user position.
-	pev(uID, pev_origin, vOrigin);
-	pev(uID, pev_view_ofs, vViewOfs);
-
-	velocity_by_aim(uID, 128, vTraceEnd);
-
-	xs_vec_add(vOrigin, vViewOfs, vOrigin);  	
-	xs_vec_add(vTraceEnd, vOrigin, vTraceEnd);
-
-    // create the trace handle.
-	new trace = create_tr2();
-	// get wall position to vNewOrigin.
-	engfunc(EngFunc_TraceLine, vOrigin, vTraceEnd, IGNORE_MONSTERS, uID, trace);
-	{
-		new Float:fFraction;
-		get_tr2( trace, TR_flFraction, fFraction );
-			
-		// -- We hit something!
-		if ( fFraction < 1.0 )
-		{
-			// -- Save results to be used later.
-			get_tr2( trace, TR_vecEndPos, vTraceEnd );
-			get_tr2( trace, TR_vecPlaneNormal, vNormal );
-		}
-	}
-    // free the trace handle.
-	free_tr2(trace);
-
-	xs_vec_add( vTraceEnd, vNormal, vDecals);
-	xs_vec_mul_scalar( vNormal, 8.0, vNormal );
-	xs_vec_add( vTraceEnd, vNormal, vNewOrigin );
+	if (!lm_trace_plant_position(uID, vNewOrigin, vNormal, vDecals))
+		return;
 
 	// set size.
 	engfunc(EngFunc_SetSize, iEnt, Float:{ -4.0, -4.0, -4.0 }, Float:{ 4.0, 4.0, 4.0 } );
@@ -727,7 +718,7 @@ set_laserend_postiion(iEnt, Float:vNormal[3], Float:vNewOrigin[3])
 				if (pev_valid(iIgnore))
 				{
 					pev(iIgnore, pev_classname, className, charsmax(className));
-					if (!equali(className, ENT_CLASS_BREAKABLE))
+					if (!equali(className, ENT_CLASS_BREAKABLE) && !equali(className, ENT_CLASS_LASER))
 						break;
 				}
 				else
@@ -1084,10 +1075,23 @@ lm_step_beambreak(iEnt, Float:vEnd[3], Float:fCurrTime)
 				pev(iTarget, pev_classname, className, charsmax(className));
 				if (equali(className, ENT_CLASS_BREAKABLE) || equali(className, ENT_CLASS_LASER))
 				{
-					hPlayer[I_TARGET] 	= iTarget;
-					hPlayer[V_POSITION]	= _:vHitPoint;
-					hPlayer[I_HIT_GROUP]= hitGroup;
-					ArrayPushArray(aTarget, hPlayer);
+					if (equali(className, ENT_CLASS_LASER))
+					{
+						new laserOwner = pev(iTarget, LASERMINE_OWNER);
+
+						if (IsPlayer(laserOwner)
+							&& lm_is_player_near_beam(laserOwner, vOrigin, vEnd)
+							&& is_user_alive(laserOwner)
+							&& is_valid_takedamage(iOwner, laserOwner)
+							&& !lm_is_user_godmode(laserOwner))
+						{
+							hPlayer[I_TARGET] 	= laserOwner;
+							hPlayer[V_POSITION]	= _:vHitPoint;
+							hPlayer[I_HIT_GROUP]= hitGroup;
+							ArrayPushArray(aTarget, hPlayer);
+							set_pev(iEnt, pev_enemy, laserOwner);
+						}
+					}
 					continue;
 				}
 				#if defined BIOHAZARD_SUPPORT
@@ -1144,9 +1148,16 @@ lm_step_beambreak(iEnt, Float:vEnd[3], Float:fCurrTime)
 	else
 	{
 		new Float:vEndPosition[3];
+		new playerHits = 0;
+
 		for (new n = 0; n < ArraySize(aTarget); n++)
 		{
 			ArrayGetArray(aTarget, n, hPlayer);
+
+			if (!IsPlayer(hPlayer[I_TARGET]))
+				continue;
+
+			playerHits++;
 			xs_vec_copy(hPlayer[V_POSITION], vEndPosition);
 
 			if (gCvar[CVAR_LASER_FENCE])
@@ -1154,13 +1165,13 @@ lm_step_beambreak(iEnt, Float:vEnd[3], Float:fCurrTime)
 				lm_fence_laser(hPlayer[I_TARGET]);
 
 			// Laser line damage mode. Once or Second.
-			create_laser_damage(iEnt, hPlayer[I_TARGET], hPlayer[I_HIT_GROUP], hPlayer[V_POSITION]);
+			create_laser_damage(iEnt, hPlayer[I_TARGET], hPlayer[I_HIT_GROUP], vEndPosition);
 		}					
 
 		// Laser line damage mode. Once or Second.
 		if (gCvar[CVAR_LASER_DMG_MODE] != 0)
 		{
-			if (ArraySize(aTarget) > 0)
+			if (playerHits > 0)
 				set_pev(iEnt, LASERMINE_COUNT, (nextTime + gCvar[CVAR_LASER_DMG_DPS]));
 
 			// if change target. keep target id.
@@ -1549,51 +1560,19 @@ public PlayerCmdStart(id, handle, random_seed)
 		{
 			if (pev_valid(gDeployingMines[id]))
 			{
-				// Vector settings.
-				static	Float:vOrigin[3], Float:vViewOfs[3];
-				static	Float:vNewOrigin[3],Float:vNormal[3],
-						Float:vTraceEnd[3],Float:vEntAngles[3];
+				static Float:vNewOrigin[3], Float:vNormal[3], Float:vDecalPos[3], Float:vEntAngles[3];
 
-				// Get wall position.
-				velocity_by_aim(id, 128, vTraceEnd);
-				// get user position.
-				pev(id, pev_origin, vOrigin);
-				pev(id, pev_view_ofs, vViewOfs);
-				xs_vec_add(vOrigin, vViewOfs, vOrigin);  	
-				xs_vec_add(vTraceEnd, vOrigin, vTraceEnd);
-
-			    // create the trace handle.
-				static trace;
-				trace = create_tr2();
-
-				// get wall position to vNewOrigin.
-				engfunc(EngFunc_TraceLine, vOrigin, vTraceEnd, IGNORE_MONSTERS, id, trace);
+				if (!lm_trace_plant_position(id, vNewOrigin, vNormal, vDecalPos))
 				{
-					// -- We hit something!
-					// -- Save results to be used later.
-					get_tr2(trace, TR_vecEndPos, vTraceEnd);
-					get_tr2(trace, TR_vecPlaneNormal, vNormal);
-
-					if (xs_vec_distance(vOrigin, vTraceEnd) < 128.0)
-					{
-						xs_vec_mul_scalar(vNormal, 8.0, vNormal);
-						xs_vec_add(vTraceEnd, vNormal, vNewOrigin);
-						// set entity position.
-						engfunc(EngFunc_SetOrigin, gDeployingMines[id], vNewOrigin);
-						// Rotate tripmine.
-						vector_to_angle(vNormal, vEntAngles);
-						// set angle.
-						set_pev(gDeployingMines[id], pev_angles, vEntAngles);
-					}
-					else
-					{
-						lm_progress_stop(id);
-					}
-
+					lm_cancel_deploy(id, ERROR:E_MUST_WALL);
 				}
-				// free the trace handle.
-				free_tr2(trace);
-			}			
+				else if (!lm_has_lasermine_near(vNewOrigin))
+				{
+					engfunc(EngFunc_SetOrigin, gDeployingMines[id], vNewOrigin);
+					vector_to_angle(vNormal, vEntAngles);
+					set_pev(gDeployingMines[id], pev_angles, vEntAngles);
+				}
+			}
 			lm_set_user_max_speed(id, 1.0);
 		}
 		case STATE_PICKING:
@@ -1855,6 +1834,7 @@ stock ERROR:show_error_message(id, ERROR:err_num, any:param = 0)
 		case E_MANY_PPL:		cp_many_ppl(id);
 		case E_DELAY_TIME:		cp_delay_time(id, param);
 		case E_MUST_WALL:		cp_must_wall(id);
+		case E_PLANT_OCCUPIED:	cp_plant_occupied(id);
 		case E_NOT_IMPLEMENT:	cp_sorry(id);
 		case E_NOT_BUYZONE:		cp_buyzone(id);
 		case E_NO_ROUND:		cp_noround(id);
@@ -1867,31 +1847,36 @@ stock ERROR:show_error_message(id, ERROR:err_num, any:param = 0)
 //====================================================
 stock ERROR:check_for_onwall(id)
 {
-	new Float:vTraceEnd[3];
-	new Float:vOrigin[3];
+	new Float:vPlantPos[3], Float:vNormal[3], Float:vDecalPos[3];
 
-	// Get potision.
-	pev(id, pev_origin, vOrigin);
-	
-	// Get wall position.
-	velocity_by_aim(id, 128, vTraceEnd);
-	xs_vec_add(vTraceEnd, vOrigin, vTraceEnd);
+	if (!lm_trace_plant_position(id, vPlantPos, vNormal, vDecalPos))
+		return show_error_message(id, ERROR:E_MUST_WALL);
 
-    // create the trace handle.
-	new trace = create_tr2();
-	new Float:fFraction = 0.0;
-	engfunc(EngFunc_TraceLine, vOrigin, vTraceEnd, IGNORE_MONSTERS, id, trace);
-	{
-    	get_tr2( trace, TR_flFraction, fFraction );
-    }
-    // free the trace handle.
-	free_tr2(trace);
+	if (lm_has_lasermine_near(vPlantPos))
+		return show_error_message(id, ERROR:E_PLANT_OCCUPIED);
 
-	// We hit something!
-	if ( fFraction < 1.0 )
-		return ERROR:E_NONE;
+	return ERROR:E_NONE;
+}
 
-	return show_error_message(id, ERROR:E_MUST_WALL);
+//====================================================
+// Cancel deploy progress without consuming a mine.
+//====================================================
+stock lm_cancel_deploy(id, ERROR:err)
+{
+	if (task_exists(TASK_PLANT + id))
+		remove_task(TASK_PLANT + id);
+
+	if (pev_valid(gDeployingMines[id]))
+		lm_remove_entity(gDeployingMines[id]);
+
+	gDeployingMines[id] = 0;
+	lm_hide_progress(id, gMsgBarTime);
+	lm_set_user_deploy_state(id, STATE_IDLE);
+
+	if (is_user_alive(id))
+		ExecuteHamB(Ham_CS_Player_ResetMaxSpeed, id);
+
+	show_error_message(id, err);
 }
 
 //====================================================
