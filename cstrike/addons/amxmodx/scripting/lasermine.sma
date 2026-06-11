@@ -2,7 +2,7 @@
 //	Plugin Writed by Visual Studio Code.
 //=============================================
 // Supported BIOHAZARD.
-// #define BIOHAZARD_SUPPORT
+#define BIOHAZARD_SUPPORT
 // #define ZP_SUPPORT
 
 //=====================================
@@ -108,6 +108,9 @@ public plugin_init()
 	register_clcmd("+setlm", 		"lm_progress_deploy");
 	register_clcmd("-setlaser", 	"lm_progress_stop");
    	register_clcmd("-setlm", 		"lm_progress_stop");
+
+	register_clcmd("+dellaser", 	"lm_progress_remove");
+	register_clcmd("-dellaser", 	"lm_progress_stop");
 
 	register_clcmd("say", 			"lm_say_lasermine");
 
