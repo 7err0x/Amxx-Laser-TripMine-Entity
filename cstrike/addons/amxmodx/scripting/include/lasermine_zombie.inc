@@ -27,6 +27,16 @@ register_zombie()
 	AutoExecConfig(true, CVAR_CFG);
 #endif
 }
+
+stock bool:lm_is_same_mine_faction(mineEnt, attacker)
+{
+	new owner = pev(mineEnt, LASERMINE_OWNER);
+
+	if (!IsPlayer(attacker) || !IsPlayer(owner))
+		return false;
+
+	return is_user_zombie(attacker) == is_user_zombie(owner);
+}
 #endif
 
 #if defined ZP_SUPPORT

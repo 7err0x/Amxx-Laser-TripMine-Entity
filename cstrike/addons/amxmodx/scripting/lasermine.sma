@@ -2033,9 +2033,14 @@ public MinesTakeDamage(victim, inflictor, attacker, Float:f_Damage, bit_Damage)
 		// 1 = team.
 		case 1:
 		{
-			// If the team of the one who put the mine and the one who attacked match.
-			if(lm_get_laser_team(victim) != cs_get_user_team(attacker))
+			// Same faction/team may damage; enemies may not.
+#if defined BIOHAZARD_SUPPORT
+			if (!lm_is_same_mine_faction(victim, attacker))
 				return HAM_SUPERCEDE;
+#else
+			if (lm_get_laser_team(victim) != cs_get_user_team(attacker))
+				return HAM_SUPERCEDE;
+#endif
 		}
 		// 2 = Enemy.
 		case 2:
@@ -2045,8 +2050,16 @@ public MinesTakeDamage(victim, inflictor, attacker, Float:f_Damage, bit_Damage)
 		// 3 = Enemy Only.
 		case 3:
 		{
-			if(iOwner == attacker || lm_get_laser_team(victim) == cs_get_user_team(attacker))
+			if (iOwner == attacker)
 				return HAM_SUPERCEDE;
+
+#if defined BIOHAZARD_SUPPORT
+			if (lm_is_same_mine_faction(victim, attacker))
+				return HAM_SUPERCEDE;
+#else
+			if (lm_get_laser_team(victim) == cs_get_user_team(attacker))
+				return HAM_SUPERCEDE;
+#endif
 		}
 		default:
 		{
