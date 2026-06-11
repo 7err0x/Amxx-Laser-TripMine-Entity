@@ -53,8 +53,6 @@
 #define TASK_PLANT					15100
 #define TASK_RESET					15500
 #define TASK_RELEASE				15900
-#define TASK_RELOAD					16000
-#define TASK_BIND					16100
 
 //====================================================
 // ENUM AREA
