@@ -37,6 +37,23 @@ stock bool:lm_is_same_mine_faction(mineEnt, attacker)
 
 	return is_user_zombie(attacker) == is_user_zombie(owner);
 }
+
+// Biohazard: strip human-planted mines on infection and refund inventory (like ZP).
+public event_infect(id, attacker)
+{
+	if (!gCvar[CVAR_ENABLE])
+		return;
+
+	delete_task(id);
+
+	new int:deployed = lm_get_user_mine_deployed(id);
+	if (deployed <= 0)
+		return;
+
+	lm_remove_all_entity(id, ENT_CLASS_LASER);
+	lm_set_user_have_mine(id, lm_get_user_have_mine(id) + deployed);
+	show_ammo(id);
+}
 #endif
 
 #if defined ZP_SUPPORT

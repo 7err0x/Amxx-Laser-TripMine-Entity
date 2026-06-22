@@ -1638,17 +1638,6 @@ public client_disconnected(id)
 
 
 //====================================================
-// Infected player Deploy stop. (BIOHAZARD)
-//====================================================
-#if defined BIOHAZARD_SUPPORT
-public event_infect2(id)
-{
-	delete_task(id);
-	return PLUGIN_CONTINUE;
-}
-#endif
-
-//====================================================
 // Delete Task.
 //====================================================
 delete_task(id)
