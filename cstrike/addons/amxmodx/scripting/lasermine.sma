@@ -697,41 +697,35 @@ set_laserend_postiion(iEnt, Float:vNormal[3], Float:vNewOrigin[3])
 	xs_vec_add( vNewOrigin, vNormal, vBeamEnd );
 
 
-	// create the trace handle.
 	vTracedBeamEnd	= vBeamEnd;
 	vTemp 			= vNewOrigin;
 	iIgnore 		= -1;
+	trace 			= create_tr2();
 
 	// Trace line
-	while(fFraction < 1.0)
+	for (new steps = 0; fFraction < 1.0 && steps < LM_TRACE_MAX_STEPS; steps++)
 	{
- 		trace = create_tr2();
 		engfunc(EngFunc_TraceLine, vTemp, vBeamEnd, (IGNORE_MONSTERS | IGNORE_GLASS), iIgnore, trace);
-		{
-			get_tr2(trace, TR_flFraction, fFraction);
-			get_tr2(trace, TR_vecEndPos, vTemp);
-			iIgnore = get_tr2(trace, TR_pHit);
+		get_tr2(trace, TR_flFraction, fFraction);
+		get_tr2(trace, TR_vecEndPos, vTemp);
+		iIgnore = get_tr2(trace, TR_pHit);
 
-			if (gCvar[CVAR_MODE] == MODE_LASERMINE)
-			{
-				// is valid hit entity?
-				if (pev_valid(iIgnore))
-				{
-					pev(iIgnore, pev_classname, className, charsmax(className));
-					if (!equali(className, ENT_CLASS_BREAKABLE) && !equali(className, ENT_CLASS_LASER))
-						break;
-				}
-				else
-					break;
-			}
-			else
-				break;
-		}
-		free_tr2(trace);
+		if (gCvar[CVAR_MODE] != MODE_LASERMINE)
+			break;
+
+		if (!pev_valid(iIgnore))
+			break;
+
+		pev(iIgnore, pev_classname, className, charsmax(className));
+
+		if (!equali(className, ENT_CLASS_BREAKABLE) && !equali(className, ENT_CLASS_LASER))
+			break;
+
+		lm_trace_nudge_forward(vTemp, vNewOrigin, vBeamEnd);
 	}
-	vTracedBeamEnd = vTemp;		
-	// free the trace handle.
+
 	free_tr2(trace);
+	vTracedBeamEnd = vTemp;
 	set_pev(iEnt, LASERMINE_BEAMENDPOINT1, vTracedBeamEnd);
 }
 
@@ -1052,84 +1046,95 @@ lm_step_beambreak(iEnt, Float:vEnd[3], Float:fCurrTime)
 	set_pev(iEnt, LASERMINE_COUNT, get_gametime());
 
 	// Trace line
-	while(fFraction < 1.0)
+	for (new steps = 0; fFraction < 1.0 && steps < LM_TRACE_MAX_STEPS; steps++)
 	{
-		// Trace line
-		engfunc(EngFunc_TraceLine, vHitPoint, vEnd, DONT_IGNORE_MONSTERS, iTarget, trace);
-		{
-			get_tr2(trace, TR_flFraction, fFraction);
-			get_tr2(trace, TR_vecEndPos, vHitPoint);				
-			iTarget		= get_tr2(trace, TR_pHit);
-			hitGroup	= get_tr2(trace, TR_iHitgroup);
+		new iIgnore = iTarget;
 
-			if(gCvar[CVAR_REALISTIC_DETAIL]) 
-				lm_draw_spark_for_wall(vHitPoint);
-		}
+		engfunc(EngFunc_TraceLine, vHitPoint, vEnd, DONT_IGNORE_MONSTERS, iIgnore, trace);
+		get_tr2(trace, TR_flFraction, fFraction);
+		get_tr2(trace, TR_vecEndPos, vHitPoint);
+		iTarget		= get_tr2(trace, TR_pHit);
+		hitGroup	= get_tr2(trace, TR_iHitgroup);
 
-		// Something has passed the laser.
-		if (fFraction < 1.0)
+		if(gCvar[CVAR_REALISTIC_DETAIL])
+			lm_draw_spark_for_wall(vHitPoint);
+
+		if (fFraction >= 1.0)
+			break;
+
+		if (!pev_valid(iTarget))
+			break;
+
+		pev(iTarget, pev_classname, className, charsmax(className));
+
+		if (equali(className, ENT_CLASS_BREAKABLE) || equali(className, ENT_CLASS_LASER))
 		{
-			// is valid hit entity?
-			if (pev_valid(iTarget))
+			if (equali(className, ENT_CLASS_LASER))
 			{
-				pev(iTarget, pev_classname, className, charsmax(className));
-				if (equali(className, ENT_CLASS_BREAKABLE) || equali(className, ENT_CLASS_LASER))
+				new laserOwner = pev(iTarget, LASERMINE_OWNER);
+
+				if (IsPlayer(laserOwner)
+					&& lm_is_player_near_beam(laserOwner, vOrigin, vEnd)
+					&& is_user_alive(laserOwner)
+					&& is_valid_takedamage(iOwner, laserOwner)
+					&& !lm_is_user_godmode(laserOwner))
 				{
-					if (equali(className, ENT_CLASS_LASER))
-					{
-						new laserOwner = pev(iTarget, LASERMINE_OWNER);
-
-						if (IsPlayer(laserOwner)
-							&& lm_is_player_near_beam(laserOwner, vOrigin, vEnd)
-							&& is_user_alive(laserOwner)
-							&& is_valid_takedamage(iOwner, laserOwner)
-							&& !lm_is_user_godmode(laserOwner))
-						{
-							hPlayer[I_TARGET] 	= laserOwner;
-							hPlayer[V_POSITION]	= _:vHitPoint;
-							hPlayer[I_HIT_GROUP]= hitGroup;
-							ArrayPushArray(aTarget, hPlayer);
-							set_pev(iEnt, pev_enemy, laserOwner);
-						}
-					}
-					continue;
+					hPlayer[I_TARGET] 	= laserOwner;
+					hPlayer[V_POSITION]	= _:vHitPoint;
+					hPlayer[I_HIT_GROUP]= hitGroup;
+					ArrayPushArray(aTarget, hPlayer);
+					set_pev(iEnt, pev_enemy, laserOwner);
 				}
-				#if defined BIOHAZARD_SUPPORT
-				if (equali(className, "player_model"))
-					iTarget = pev(iTarget, pev_owner);
-				#endif
-				// is user?
-				if (!(pev(iTarget, pev_flags) & (FL_CLIENT | FL_FAKECLIENT | FL_MONSTER)) && !IsPlayer(iTarget))
-					continue;
-
-				// is dead?
-				if (!is_user_alive(iTarget))
-					continue;
-
-				// Hit friend and No FF.
-				if (!is_valid_takedamage(iOwner, iTarget))
-					continue;
-				
-				// is godmode?
-				if (lm_is_user_godmode(iTarget))
-					continue;
-
-				hPlayer[I_TARGET] 	= iTarget;
-				hPlayer[V_POSITION]	= _:vHitPoint;
-				hPlayer[I_HIT_GROUP]= hitGroup;
-				ArrayPushArray(aTarget, hPlayer);
-
-				if (hitGroup == HIT_SHIELD && gCvar[CVAR_DIFENCE_SHIELD])
-					break;
-
-				// keep target id.
-				set_pev(iEnt, pev_enemy, iTarget);
 			}
-			else
-			{
-				continue;
-			}
+
+			lm_trace_nudge_forward(vHitPoint, vOrigin, vEnd);
+			continue;
 		}
+
+		#if defined BIOHAZARD_SUPPORT
+		if (equali(className, "player_model"))
+			iTarget = pev(iTarget, pev_owner);
+		#endif
+
+		// is user?
+		if (!(pev(iTarget, pev_flags) & (FL_CLIENT | FL_FAKECLIENT | FL_MONSTER)) && !IsPlayer(iTarget))
+		{
+			lm_trace_nudge_forward(vHitPoint, vOrigin, vEnd);
+			continue;
+		}
+
+		// is dead?
+		if (!is_user_alive(iTarget))
+		{
+			lm_trace_nudge_forward(vHitPoint, vOrigin, vEnd);
+			continue;
+		}
+
+		// Hit friend and No FF.
+		if (!is_valid_takedamage(iOwner, iTarget))
+		{
+			lm_trace_nudge_forward(vHitPoint, vOrigin, vEnd);
+			continue;
+		}
+
+		// is godmode?
+		if (lm_is_user_godmode(iTarget))
+		{
+			lm_trace_nudge_forward(vHitPoint, vOrigin, vEnd);
+			continue;
+		}
+
+		hPlayer[I_TARGET] 	= iTarget;
+		hPlayer[V_POSITION]	= _:vHitPoint;
+		hPlayer[I_HIT_GROUP]= hitGroup;
+		ArrayPushArray(aTarget, hPlayer);
+
+		if (hitGroup == HIT_SHIELD && gCvar[CVAR_DIFENCE_SHIELD])
+			break;
+
+		// keep target id.
+		set_pev(iEnt, pev_enemy, iTarget);
+		lm_trace_nudge_forward(vHitPoint, vOrigin, vEnd);
 	}
 
 	if (gCvar[CVAR_MODE] == MODE_TRIPMINE)

@@ -101,6 +101,50 @@ stock int:lm_get_team_deployed_count(id)
 //====================================================
 #define LM_DEPLOY_BLOCK_RADIUS	20.0
 #define LM_BEAM_PLAYER_MARGIN	40.0
+#define LM_TRACE_MAX_STEPS		32
+#define LM_TRACE_ADVANCE_UNITS	4.0
+
+// Advance a trace start point past a solid hit so repeated traces cannot stall.
+stock lm_trace_nudge_forward(Float:point[3], const Float:from[3], const Float:to[3], Float:units = LM_TRACE_ADVANCE_UNITS)
+{
+	new Float:dir[3];
+
+	xs_vec_sub(to, from, dir);
+
+	if (xs_vec_len(dir) < 0.1)
+		return;
+
+	xs_vec_normalize(dir, dir);
+	xs_vec_mul_scalar(dir, units, dir);
+	xs_vec_add(point, dir, point);
+}
+
+// Doors, plats, and other push brushes move after planting and can hang trace loops.
+stock bool:lm_is_moving_surface(iEnt)
+{
+	if (!pev_valid(iEnt))
+		return false;
+
+	static className[MAX_NAME_LENGTH];
+
+	pev(iEnt, pev_classname, className, charsmax(className));
+
+	if (equal(className, "func_door")
+		|| equal(className, "func_door_rotating")
+		|| equal(className, "momentary_door")
+		|| equal(className, "func_plat")
+		|| equal(className, "func_platrot")
+		|| equal(className, "func_rotating")
+		|| equal(className, "func_tracktrain")
+		|| equal(className, "func_train")
+		|| equal(className, "func_conveyor")
+		|| equal(className, "func_pendulum"))
+		return true;
+
+	new movetype = pev(iEnt, pev_movetype);
+
+	return (movetype == MOVETYPE_PUSH || movetype == MOVETYPE_PUSHSTEP);
+}
 
 stock bool:lm_has_lasermine_near(const Float:origin[3], Float:radius = LM_DEPLOY_BLOCK_RADIUS, ignoreEnt = 0)
 {
@@ -136,6 +180,14 @@ stock bool:lm_trace_plant_position(id, Float:vPlantPos[3], Float:vNormal[3], Flo
 	get_tr2(trace, TR_flFraction, fFraction);
 
 	if (fFraction >= 1.0)
+	{
+		free_tr2(trace);
+		return false;
+	}
+
+	new iHit = get_tr2(trace, TR_pHit);
+
+	if (lm_is_moving_surface(iHit))
 	{
 		free_tr2(trace);
 		return false;
