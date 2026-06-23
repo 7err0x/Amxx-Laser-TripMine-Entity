@@ -119,33 +119,6 @@ stock lm_trace_nudge_forward(Float:point[3], const Float:from[3], const Float:to
 	xs_vec_add(point, dir, point);
 }
 
-// Doors, plats, and other push brushes move after planting and can hang trace loops.
-stock bool:lm_is_moving_surface(iEnt)
-{
-	if (!pev_valid(iEnt))
-		return false;
-
-	static className[MAX_NAME_LENGTH];
-
-	pev(iEnt, pev_classname, className, charsmax(className));
-
-	if (equal(className, "func_door")
-		|| equal(className, "func_door_rotating")
-		|| equal(className, "momentary_door")
-		|| equal(className, "func_plat")
-		|| equal(className, "func_platrot")
-		|| equal(className, "func_rotating")
-		|| equal(className, "func_tracktrain")
-		|| equal(className, "func_train")
-		|| equal(className, "func_conveyor")
-		|| equal(className, "func_pendulum"))
-		return true;
-
-	new movetype = pev(iEnt, pev_movetype);
-
-	return (movetype == MOVETYPE_PUSH || movetype == MOVETYPE_PUSHSTEP);
-}
-
 stock bool:lm_has_lasermine_near(const Float:origin[3], Float:radius = LM_DEPLOY_BLOCK_RADIUS, ignoreEnt = 0)
 {
 	new ent = -1;
@@ -180,14 +153,6 @@ stock bool:lm_trace_plant_position(id, Float:vPlantPos[3], Float:vNormal[3], Flo
 	get_tr2(trace, TR_flFraction, fFraction);
 
 	if (fFraction >= 1.0)
-	{
-		free_tr2(trace);
-		return false;
-	}
-
-	new iHit = get_tr2(trace, TR_pHit);
-
-	if (lm_is_moving_surface(iHit))
 	{
 		free_tr2(trace);
 		return false;
